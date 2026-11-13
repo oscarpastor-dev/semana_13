@@ -1,13 +1,35 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import re
+import os
+
+try:
+    from PIL import Image, ImageTk
+    PIL_DISPONIBLE = True
+except ImportError:
+    PIL_DISPONIBLE = False
+
+# Ruta de la imagen real del logo de Google.
+RUTA_ICONO_GOOGLE = r"D:\Nueva carpeta (3)\images.png"
+
+# Ícono de respaldo (si no se encuentra images.png o no está instalado Pillow)
+GOOGLE_ICON_B64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAABT0lEQVR4nMWWMU4DMRBF"
+    "/64QDRJdTrA+AA1ItCx1KiRylhwAzkGJxBGI6MkVvCcIUqo0EVIo0KzGw8zYG4H51a49"
+    "6+c/HnkHqKxmSnCM8aCNhxCK18kGckjXdWrMMAxHwVXYVFlZIKm7oY8sRzmRY83tj4EY"
+    "48EDfa5OAQDXH/NxbH3/YoIl9KRoywyk6fL5zgVzJXTNnQXiDqU4WLpsj4HlRI6B7zrg"
+    "hVSc0vGDfg8AWBuAnFprQnNHMCnt7KxNtEC+Mj2YByXxtKoOpbsczIJqLs2U/pWqA9Uq"
+    "3T5eJO+zvnzB8+HJnf+flIYQGv6Lmb2+J0Gb26uixfqHXfK+Wp4BSG+bYoc5qIRZMoHS"
+    "pQfVYOROaiyaEEJTcgFw6OLmzY0FnMuboN5Zlko7O1L28iZoSeFYaeSa3GJoKZUgr8Vw"
+    "Va2JklB6/o02sXojXF1f71sIItI/fx8AAAAASUVORK5CYII="
+)
 
 
 class FormularioRegistro:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Registro de Usuario")
-        self.root.geometry("400x350")
+        self.root.geometry("500x530")
 
         # Variables de los campos
         self.nombre = tk.StringVar()
@@ -28,7 +50,7 @@ class FormularioRegistro:
         # Título
         tk.Label(
             frame, text="Registro de Usuario",
-            font=("Arial", 20, "bold")
+            font=("Arial", 16, "bold")
         ).grid(row=0, column=0, columnspan=4, pady=(0, 15))
 
         # Campos de texto: Nombre, Email, Contraseña, Confirmar contraseña
@@ -64,7 +86,8 @@ class FormularioRegistro:
         genero_frame.grid(row=fila_edad_genero, column=3, sticky="w", pady=5)
         for opcion, letra in [("Masculino", "M"), ("Femenino", "F")]:
             tk.Radiobutton(
-                genero_frame, text=letra, variable=self.genero, value=opcion
+                genero_frame, text=letra, variable=self.genero, value=opcion,
+                selectcolor="white"
             ).pack(side="left")
 
         # Fila: Acepto términos (izquierda) + "Otro" (bajo Género, sin
@@ -72,26 +95,101 @@ class FormularioRegistro:
         fila_terminos = fila_edad_genero + 1
         tk.Checkbutton(
             frame, text="Acepto términos", variable=self.acepto
-        ).grid(row=fila_terminos, column=0, columnspan=1, sticky="w", pady=10)
+        ).grid(row=fila_terminos, column=0, columnspan=2, sticky="w", pady=10)
 
         tk.Radiobutton(
-            frame, text="Otro", variable=self.genero, value="Otro"
+            frame, text="Otro", variable=self.genero, value="Otro",
+            selectcolor="white"
         ).grid(row=fila_terminos, column=3, sticky="w", pady=10)
 
         # Botones
         fila_botones = fila_terminos + 1
         btn_frame = tk.Frame(frame)
         btn_frame.grid(row=fila_botones, column=0, columnspan=4, pady=15)
-        tk.Button(
+        self.btn_registrar = tk.Button(
             btn_frame, text="Registrar",
             command=self.validar, width=15,
-            bg="#0BF213", fg="white"
-        ).pack(side="left", padx=10)
-        tk.Button(
+            bg="#4CAF50", fg="white"
+        )
+        self.btn_registrar.pack(side="left", padx=10)
+        self.btn_limpiar = tk.Button(
             btn_frame, text="Limpiar",
-            command=self.limpiar, width=15,
-            bg="#0B25E6", fg="white"
-        ).pack(side="left", padx=10)
+            command=self.limpiar, width=15
+        )
+        self.btn_limpiar.pack(side="left", padx=10)
+
+        # Botón "continuar con Google", con ícono, según el wireframe
+        fila_google = fila_botones + 1
+        self.icono_google = self._cargar_icono_google(alto_px=22)
+        tk.Button(
+            frame, text=" continuar con google",
+            image=self.icono_google, compound="left",
+            command=self.abrir_login_google, width=180,
+            anchor="w", padx=10
+        ).grid(row=fila_google, column=0, columnspan=4, pady=(0, 10))
+
+        # Círculo de carga (oculto hasta que se procese el registro)
+        self.cargando = ttk.Progressbar(
+            frame, mode="indeterminate", length=150
+        )
+        self.cargando.grid(row=fila_google + 1, column=0, columnspan=4, pady=(0, 10))
+        self.cargando.grid_remove()
+
+    def _cargar_icono_google(self, alto_px=22):
+        """Carga images.png y la reduce a 'alto_px' de alto, manteniendo
+        la proporción. Si no existe el archivo o no hay Pillow instalado,
+        usa el ícono de respaldo incrustado en el código."""
+        if PIL_DISPONIBLE and os.path.exists(RUTA_ICONO_GOOGLE):
+            try:
+                imagen = Image.open(RUTA_ICONO_GOOGLE)
+                proporcion = alto_px / imagen.height
+                nuevo_ancho = max(1, int(imagen.width * proporcion))
+                imagen = imagen.resize((nuevo_ancho, alto_px), Image.LANCZOS)
+                return ImageTk.PhotoImage(imagen)
+            except Exception:
+                pass
+        # Respaldo: ícono simplificado incrustado en base64
+        return tk.PhotoImage(data=GOOGLE_ICON_B64)
+
+    def abrir_login_google(self):
+        # Ventana secundaria que simula el inicio de sesión con Google,
+        # según el segundo recuadro del wireframe.
+        ventana_google = tk.Toplevel(self.root)
+        ventana_google.title("Iniciar sesión con Google")
+        ventana_google.geometry("350x180")
+        ventana_google.resizable(False, False)
+        ventana_google.transient(self.root)
+        ventana_google.grab_set()  # bloquea la ventana principal mientras está abierta
+
+        contenedor = tk.Frame(ventana_google, padx=20, pady=20)
+        contenedor.pack(fill="both", expand=True)
+
+        tk.Label(contenedor, text="ingresa correo").grid(row=0, column=0, sticky="e", pady=10)
+        usuario_var = tk.StringVar()
+        tk.Entry(contenedor, textvariable=usuario_var, width=15).grid(row=0, column=1)
+        tk.Label(contenedor, text="@gmail.com").grid(row=0, column=2, sticky="w", padx=(5, 0))
+
+        def ingresar():
+            usuario = usuario_var.get().strip()
+            if not usuario:
+                messagebox.showerror("Error", "Ingresa un correo válido", parent=ventana_google)
+                return
+            # Autocompleta el formulario con los datos de la cuenta de Google
+            self.email.set(f"{usuario}@gmail.com")
+            if not self.nombre.get().strip():
+                self.nombre.set(usuario.replace(".", " ").title())
+            ventana_google.destroy()
+            messagebox.showinfo(
+                "Sesión iniciada",
+                f"Sesión iniciada con {usuario}@gmail.com"
+            )
+
+        tk.Button(
+            contenedor, text="ingresar", command=ingresar, width=15
+        ).grid(row=1, column=0, columnspan=3, pady=15)
+
+        usuario_var.set("")
+        contenedor.winfo_children()[1].focus_set()
 
     def validar(self):
         errores = []
@@ -134,12 +232,25 @@ class FormularioRegistro:
                 "Errores de validación",
                 "\n".join(f"• {e}" for e in errores)
             )
-        else:
-            messagebox.showinfo(
-                "Registro exitoso",
-                f"¡Bienvenido {self.nombre.get()}!\n"
-                f"Email: {self.email.get()}"
-            )
+            return
+
+        # Datos válidos: mostrar el círculo de carga antes de confirmar
+        self.btn_registrar.config(state="disabled")
+        self.btn_limpiar.config(state="disabled")
+        self.cargando.grid()
+        self.cargando.start(10)
+        self.root.after(1200, self._finalizar_registro)
+
+    def _finalizar_registro(self):
+        self.cargando.stop()
+        self.cargando.grid_remove()
+        self.btn_registrar.config(state="normal")
+        self.btn_limpiar.config(state="normal")
+        messagebox.showinfo(
+            "Registro exitoso",
+            f"¡Bienvenido {self.nombre.get()}!\n"
+            f"Email: {self.email.get()}"
+        )
 
     def limpiar(self):
         for var in [self.nombre, self.email, self.password,

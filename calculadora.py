@@ -27,10 +27,11 @@ class Calculadora:
             ('4', '5', '6', '*'),
             ('1', '2', '3', '-'),
             ('C', '0', '=', '+'),
+         
         ]
 
         # La cuarta columna (operadores) usa botones más grandes,
-        # según el wireframe dibujado a mano.
+        
         for i, fila in enumerate(botones):
             for j, texto in enumerate(fila):
                 es_operador = j == 3
